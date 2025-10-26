@@ -77,16 +77,6 @@
     }
     table{ width:100%; border-collapse:collapse; margin-top:8px; }
     th,td{ text-align:left; padding:8px 6px; border-bottom:1px solid #f1f5f9; font-size:13px;}
-    .export-btn{
-      background:var(--accent);
-      color:#fff;
-      border:none;
-      border-radius:8px;
-      padding:8px 14px;
-      cursor:pointer;
-      font-weight:600;
-      margin-top:10px;
-    }
   </style>
 </head>
 <body>
@@ -101,12 +91,10 @@
     <h3>Elenco prenotazioni</h3>
     <table id="bookingTable">
       <thead>
-        <tr><th>Data</th><th>Orario</th><th>Nome</th><th>Genitore di</th><th>Slot ID</th><th>Rimuovi</th></tr>
+        <tr><th>Data</th><th>Orario</th><th>Nome</th><th>Genitore di</th></tr>
       </thead>
       <tbody></tbody>
     </table>
-
-    <button class="export-btn" id="exportBtn">📄 Esporta in CSV</button>
   </div>
 
   <!-- Modal -->
@@ -133,17 +121,16 @@
   </div>
 
   <script>
-    const SLOTS = [
-      // Mercoledì 5 novembre
-      { id: '2025-11-05-15-00', date: 'Mercoledi 5 novembre', time: '15:00', capacity: 4 },
-      { id: '2025-11-05-15-30', date: 'Mercoledi 5 novembre', time: '15:30', capacity: 4 },
-      { id: '2025-11-05-16-00', date: 'Mercoledi 5 novembre', time: '16:00', capacity: 4 },
-      // Giovedì 6 novembre
-      { id: '2025-11-06-16-40', date: 'Giovedi 6 novembre', time: '16:40', capacity: 4 },
-      { id: '2025-11-06-17-20', date: 'Giovedi 6 novembre', time: '17:20', capacity: 4 }
-    ];
+    // 🔗 Inserisci qui sotto il tuo URL dello script Google Apps Script (termina con /exec)
+    const SCRIPT_URL = "INCOLLA_QUI_IL_TUO_URL_APPS_SCRIPT";
 
-    const STORAGE_KEY = 'prenotazioni_colloqui_v6';
+    const SLOTS = [
+      { id: '2025-11-05-15-00', date: '5 novembre', time: '15:00', capacity: 4 },
+      { id: '2025-11-05-15-30', date: '5 novembre', time: '15:30', capacity: 4 },
+      { id: '2025-11-05-16-00', date: '5 novembre', time: '16:00', capacity: 4 },
+      { id: '2025-11-06-16-40', date: '6 novembre', time: '16:40', capacity: 4 },
+      { id: '2025-11-06-17-20', date: '6 novembre', time: '17:20', capacity: 4 }
+    ];
 
     const slotsGrid = document.getElementById('slotsGrid');
     const bookingTableBody = document.querySelector('#bookingTable tbody');
@@ -154,49 +141,18 @@
     const nameInput = document.getElementById('name');
     const childInput = document.getElementById('child');
     const cancelBtn = document.getElementById('cancelBtn');
-    const exportBtn = document.getElementById('exportBtn');
-
-    function load(){ try {return JSON.parse(localStorage.getItem(STORAGE_KEY))||[]}catch{return[]} }
-    function save(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
-    function count(slotId){ return load().filter(b=>b.slotId===slotId).length; }
 
     function renderSlots(){
       slotsGrid.innerHTML = '';
       SLOTS.forEach(slot=>{
-        const used = count(slot.id);
-        const remaining = slot.capacity - used;
         const card = document.createElement('div');
         card.className = 'slot';
         card.innerHTML = `
           <h3>${slot.date} — ${slot.time}</h3>
-          <div class="meta">Posti rimanenti: <strong>${remaining}</strong></div>
-          <button class="book" ${remaining===0?'disabled':''}>Prenota</button>
+          <button class="book">Prenota</button>
         `;
         card.querySelector('button').onclick = ()=>openModal(slot);
         slotsGrid.appendChild(card);
-      });
-      renderTable();
-    }
-
-    function renderTable(){
-      const bookings = load();
-      bookingTableBody.innerHTML = '';
-      if(bookings.length===0){
-        bookingTableBody.innerHTML = '<tr><td colspan="6" style="color:#6b7280">Nessuna prenotazione</td></tr>';
-        return;
-      }
-      bookings.forEach((b,i)=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${b.date}</td>
-          <td>${b.time}</td>
-          <td>${escapeHtml(b.name)}</td>
-          <td>${escapeHtml(b.child)}</td>
-          <td>${b.slotId}</td>
-          <td><button class="ghost" data-i="${i}">Rimuovi</button></td>
-        `;
-        tr.querySelector('button').onclick=()=>removeBooking(i);
-        bookingTableBody.appendChild(tr);
       });
     }
 
@@ -210,60 +166,66 @@
     }
     function closeModal(){ modalBackdrop.style.display='none'; }
 
-    bookingForm.onsubmit = e=>{
+    bookingForm.onsubmit = async e => {
       e.preventDefault();
       const name = nameInput.value.trim();
       const child = childInput.value.trim();
       if(!name || !child){ alert('Inserisci tutti i dati richiesti.'); return; }
+
       const slotId = slotIdInput.value;
       const slot = SLOTS.find(s=>s.id===slotId);
-      const bookings = load();
-      if(count(slotId) >= slot.capacity){
-        alert('Posti esauriti per questo orario.');
-        closeModal();
-        renderSlots();
-        return;
+      const payload = { date: slot.date, time: slot.time, name, child, slotId };
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        if(res.ok){
+          alert("Prenotazione inviata con successo!");
+          closeModal();
+          fetchBookings(); // aggiorna la tabella
+        } else {
+          alert("Errore nell'invio, riprova.");
+        }
+      } catch(err){
+        alert("Errore di connessione: " + err.message);
       }
-      bookings.push({slotId,name,child,date:slot.date,time:slot.time,createdAt:new Date().toISOString()});
-      save(bookings);
-      renderSlots();
-      closeModal();
-      alert('Prenotazione confermata!');
     };
 
     cancelBtn.onclick = closeModal;
     modalBackdrop.onclick = e=>{ if(e.target===modalBackdrop) closeModal(); };
 
-    function removeBooking(i){
-      const b = load();
-      if(!confirm('Cancellare questa prenotazione?')) return;
-      b.splice(i,1);
-      save(b);
-      renderSlots();
+    async function fetchBookings(){
+      try {
+        const res = await fetch(SCRIPT_URL);
+        const data = await res.json();
+        renderTableFromSheet(data);
+      } catch(e){
+        console.error(e);
+      }
     }
 
-    function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-
-    // Esportazione CSV
-    exportBtn.onclick = ()=>{
-      const bookings = load();
-      if(bookings.length===0){ alert("Nessuna prenotazione da esportare."); return; }
-      const csvRows = [
-        ["Data","Orario","Nome","Genitore di","Slot ID"].join(","),
-        ...bookings.map(b=>[b.date,b.time,b.name,b.child,b.slotId].map(v=>`"${v}"`).join(","))
-      ];
-      const blob = new Blob([csvRows.join("\n")], {type:"text/csv;charset=utf-8;"});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "prenotazioni_colloqui.csv";
-      a.click();
-      URL.revokeObjectURL(url);
-    };
+    function renderTableFromSheet(rows){
+      bookingTableBody.innerHTML = '';
+      if(rows.length === 0){
+        bookingTableBody.innerHTML = '<tr><td colspan="4" style="color:#6b7280">Nessuna prenotazione</td></tr>';
+        return;
+      }
+      rows.forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${r["Data"] || ""}</td>
+          <td>${r["Orario"] || ""}</td>
+          <td>${r["Nome"] || ""}</td>
+          <td>${r["Genitore di"] || ""}</td>
+        `;
+        bookingTableBody.appendChild(tr);
+      });
+    }
 
     renderSlots();
+    fetchBookings();
   </script>
 </body>
 </html>
-
-
