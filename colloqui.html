@@ -93,14 +93,16 @@
   <div class="container">
     <header>
       <h1>Prenotazione colloqui con le insegnanti</h1>
-      <p>Mercoledì 5 novembre e Giovedì 6 novembre — scegli un orario e inserisci il tuo nome per prenotare.</p>
+      <p>Mercoledì 5 novembre e Giovedì 6 novembre — scegli un orario e inserisci i dati per prenotarti.</p>
     </header>
 
     <div class="grid" id="slotsGrid"></div>
 
     <h3>Elenco prenotazioni</h3>
     <table id="bookingTable">
-      <thead><tr><th>Data</th><th>Orario</th><th>Nome</th><th>Slot ID</th><th>Rimuovi</th></tr></thead>
+      <thead>
+        <tr><th>Data</th><th>Orario</th><th>Nome</th><th>Genitore di</th><th>Slot ID</th><th>Rimuovi</th></tr>
+      </thead>
       <tbody></tbody>
     </table>
 
@@ -116,6 +118,10 @@
         <div class="form-row">
           <label for="name">Nome e cognome</label>
           <input id="name" type="text" required />
+        </div>
+        <div class="form-row">
+          <label for="child">Genitore di</label>
+          <input id="child" type="text" required />
         </div>
         <input type="hidden" id="slotIdInput" />
         <div class="actions">
@@ -137,7 +143,7 @@
       { id: '2025-11-06-17-20', date: '6 novembre', time: '17:20', capacity: 4 }
     ];
 
-    const STORAGE_KEY = 'prenotazioni_colloqui_v5';
+    const STORAGE_KEY = 'prenotazioni_colloqui_v6';
 
     const slotsGrid = document.getElementById('slotsGrid');
     const bookingTableBody = document.querySelector('#bookingTable tbody');
@@ -146,6 +152,7 @@
     const slotIdInput = document.getElementById('slotIdInput');
     const bookingForm = document.getElementById('bookingForm');
     const nameInput = document.getElementById('name');
+    const childInput = document.getElementById('child');
     const cancelBtn = document.getElementById('cancelBtn');
     const exportBtn = document.getElementById('exportBtn');
 
@@ -154,7 +161,6 @@
     function count(slotId){ return load().filter(b=>b.slotId===slotId).length; }
 
     function renderSlots(){
-      const bookings = load();
       slotsGrid.innerHTML = '';
       SLOTS.forEach(slot=>{
         const used = count(slot.id);
@@ -176,7 +182,7 @@
       const bookings = load();
       bookingTableBody.innerHTML = '';
       if(bookings.length===0){
-        bookingTableBody.innerHTML = '<tr><td colspan="5" style="color:#6b7280">Nessuna prenotazione</td></tr>';
+        bookingTableBody.innerHTML = '<tr><td colspan="6" style="color:#6b7280">Nessuna prenotazione</td></tr>';
         return;
       }
       bookings.forEach((b,i)=>{
@@ -185,6 +191,7 @@
           <td>${b.date}</td>
           <td>${b.time}</td>
           <td>${escapeHtml(b.name)}</td>
+          <td>${escapeHtml(b.child)}</td>
           <td>${b.slotId}</td>
           <td><button class="ghost" data-i="${i}">Rimuovi</button></td>
         `;
@@ -197,6 +204,7 @@
       slotInfo.textContent = `${slot.date} — ${slot.time}`;
       slotIdInput.value = slot.id;
       nameInput.value = '';
+      childInput.value = '';
       modalBackdrop.style.display='flex';
       nameInput.focus();
     }
@@ -205,7 +213,8 @@
     bookingForm.onsubmit = e=>{
       e.preventDefault();
       const name = nameInput.value.trim();
-      if(!name){ alert('Inserisci il nome.'); return; }
+      const child = childInput.value.trim();
+      if(!name || !child){ alert('Inserisci tutti i dati richiesti.'); return; }
       const slotId = slotIdInput.value;
       const slot = SLOTS.find(s=>s.id===slotId);
       const bookings = load();
@@ -215,7 +224,7 @@
         renderSlots();
         return;
       }
-      bookings.push({slotId,name,date:slot.date,time:slot.time,createdAt:new Date().toISOString()});
+      bookings.push({slotId,name,child,date:slot.date,time:slot.time,createdAt:new Date().toISOString()});
       save(bookings);
       renderSlots();
       closeModal();
@@ -240,8 +249,8 @@
       const bookings = load();
       if(bookings.length===0){ alert("Nessuna prenotazione da esportare."); return; }
       const csvRows = [
-        ["Data","Orario","Nome","Slot ID"].join(","),
-        ...bookings.map(b=>[b.date,b.time,b.name,b.slotId].map(v=>`"${v}"`).join(","))
+        ["Data","Orario","Nome","Genitore di","Slot ID"].join(","),
+        ...bookings.map(b=>[b.date,b.time,b.name,b.child,b.slotId].map(v=>`"${v}"`).join(","))
       ];
       const blob = new Blob([csvRows.join("\n")], {type:"text/csv;charset=utf-8;"});
       const url = URL.createObjectURL(blob);
@@ -256,3 +265,4 @@
   </script>
 </body>
 </html>
+
