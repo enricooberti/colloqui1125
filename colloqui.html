@@ -8,7 +8,7 @@
     :root{
       --bg:#f5f7fa;
       --card:#ffffff;
-      --accent:#2b6cb0;
+      --accent:#2563eb;
       --muted:#6b7280;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     }
@@ -30,8 +30,8 @@
       box-shadow:0 8px 30px rgba(15,23,42,0.08);
       padding:28px;
     }
-    header h1{ margin:0; font-size:20px; }
-    header p{ margin:4px 0 20px; color:var(--muted); }
+    header h1{ margin:0; font-size:22px; }
+    header p{ margin:6px 0 20px; color:var(--muted); }
     .grid{
       display:grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -100,7 +100,7 @@
     </table>
   </div>
 
-  <!-- Modal -->
+  <!-- Modal prenotazione -->
   <div class="modal-backdrop" id="modalBackdrop">
     <div class="modal">
       <h2>Prenota colloquio</h2>
@@ -124,7 +124,8 @@
   </div>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwUgppsyu8NE8zC8h0-aztWTfjvZmuOJsWb-N8Ri7bRQ0SJbhXYHGVgpB_JsavR41GhNA/exec";
+    // 🔗 Inserisci qui sotto il tuo URL dello script Google Apps Script
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyOW79I-sdL3Eb9vNUQQXWlXC4kDKm13koupcQHfbC0k3ZLPKtxNQwsGmoz7nKwJLVYMw/exec";
 
     const SLOTS = [
       { id: '2025-11-05-15-00', date: '5 novembre', time: '15:00', capacity: 4 },
@@ -146,6 +147,7 @@
 
     let BOOKINGS = [];
 
+    // Mostra gli slot e i posti rimanenti
     function renderSlots(){
       slotsGrid.innerHTML = '';
       SLOTS.forEach(slot=>{
@@ -173,6 +175,7 @@
     }
     function closeModal(){ modalBackdrop.style.display='none'; }
 
+    // Prenotazione
     bookingForm.onsubmit = async e => {
       e.preventDefault();
       const name = nameInput.value.trim();
@@ -196,6 +199,7 @@
     cancelBtn.onclick = closeModal;
     modalBackdrop.onclick = e=>{ if(e.target===modalBackdrop) closeModal(); };
 
+    // Ottiene le prenotazioni dal foglio
     async function fetchBookings(){
       try {
         const res = await fetch(SCRIPT_URL);
@@ -206,6 +210,7 @@
       } catch(e){ console.error(e); }
     }
 
+    // Mostra tabella prenotazioni
     function renderTableFromSheet(rows){
       bookingTableBody.innerHTML = '';
       if(rows.length === 0){
@@ -226,6 +231,7 @@
       });
     }
 
+    // Cancella prenotazione
     async function deleteBooking(id){
       if(!confirm("Vuoi davvero cancellare questa prenotazione?")) return;
       try {
@@ -243,5 +249,3 @@
   </script>
 </body>
 </html>
-
-
