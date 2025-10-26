@@ -77,6 +77,9 @@
     }
     table{ width:100%; border-collapse:collapse; margin-top:8px; }
     th,td{ text-align:left; padding:8px 6px; border-bottom:1px solid #f1f5f9; font-size:13px;}
+    .cancel-btn{
+      color:#dc2626; cursor:pointer; background:none; border:none; font-size:13px;
+    }
   </style>
 </head>
 <body>
@@ -91,7 +94,7 @@
     <h3>Elenco prenotazioni</h3>
     <table id="bookingTable">
       <thead>
-        <tr><th>Data</th><th>Orario</th><th>Nome</th><th>Genitore di</th></tr>
+        <tr><th>Data</th><th>Orario</th><th>Nome</th><th>Genitore di</th><th></th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -121,7 +124,6 @@
   </div>
 
   <script>
-    // 🔗 Inserisci qui sotto il tuo URL dello script Google Apps Script (termina con /exec)
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_yhpHWD5hw8YIOIH6tD_NOWzJ74JpimzpNlmin2-2mSG6RTgdlgWHHFjcAqoefSQ4NQ/exec";
 
     const SLOTS = [
@@ -142,14 +144,19 @@
     const childInput = document.getElementById('child');
     const cancelBtn = document.getElementById('cancelBtn');
 
+    let BOOKINGS = [];
+
     function renderSlots(){
       slotsGrid.innerHTML = '';
       SLOTS.forEach(slot=>{
+        const count = BOOKINGS.filter(b => b["Slot ID"] === slot.id).length;
+        const remaining = slot.capacity - count;
         const card = document.createElement('div');
         card.className = 'slot';
         card.innerHTML = `
           <h3>${slot.date} — ${slot.time}</h3>
-          <button class="book">Prenota</button>
+          <div class="meta">${remaining > 0 ? `Posti rimasti: ${remaining}` : 'Slot completo'}</div>
+          <button class="book" ${remaining<=0 ? 'disabled' : ''}>Prenota</button>
         `;
         card.querySelector('button').onclick = ()=>openModal(slot);
         slotsGrid.appendChild(card);
@@ -177,20 +184,13 @@
       const payload = { date: slot.date, time: slot.time, name, child, slotId };
 
       try {
-        const res = await fetch(SCRIPT_URL, {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
+        const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
         if(res.ok){
           alert("Prenotazione inviata con successo!");
           closeModal();
-          fetchBookings(); // aggiorna la tabella
-        } else {
-          alert("Errore nell'invio, riprova.");
-        }
-      } catch(err){
-        alert("Errore di connessione: " + err.message);
-      }
+          await fetchBookings();
+        } else alert("Errore nell'invio, riprova.");
+      } catch(err){ alert("Errore di connessione: " + err.message); }
     };
 
     cancelBtn.onclick = closeModal;
@@ -200,16 +200,16 @@
       try {
         const res = await fetch(SCRIPT_URL);
         const data = await res.json();
+        BOOKINGS = data;
         renderTableFromSheet(data);
-      } catch(e){
-        console.error(e);
-      }
+        renderSlots();
+      } catch(e){ console.error(e); }
     }
 
     function renderTableFromSheet(rows){
       bookingTableBody.innerHTML = '';
       if(rows.length === 0){
-        bookingTableBody.innerHTML = '<tr><td colspan="4" style="color:#6b7280">Nessuna prenotazione</td></tr>';
+        bookingTableBody.innerHTML = '<tr><td colspan="5" style="color:#6b7280">Nessuna prenotazione</td></tr>';
         return;
       }
       rows.forEach(r=>{
@@ -219,9 +219,23 @@
           <td>${r["Orario"] || ""}</td>
           <td>${r["Nome"] || ""}</td>
           <td>${r["Genitore di"] || ""}</td>
+          <td><button class="cancel-btn" data-id="${r["ID"]}">❌</button></td>
         `;
+        tr.querySelector('.cancel-btn').onclick = ()=>deleteBooking(r["ID"]);
         bookingTableBody.appendChild(tr);
       });
+    }
+
+    async function deleteBooking(id){
+      if(!confirm("Vuoi davvero cancellare questa prenotazione?")) return;
+      try {
+        const url = SCRIPT_URL + "?id=" + encodeURIComponent(id);
+        const res = await fetch(url, { method: "DELETE" });
+        if(res.ok){
+          alert("Prenotazione cancellata.");
+          await fetchBookings();
+        } else alert("Errore durante la cancellazione.");
+      } catch(e){ alert("Errore di connessione."); }
     }
 
     renderSlots();
@@ -229,5 +243,3 @@
   </script>
 </body>
 </html>
-
-
